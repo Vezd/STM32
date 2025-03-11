@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 /*#include "usbd_cdc_if.h"*/
 #include "acselLib.h"
+#include "usbd_hid.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,6 +51,15 @@ SPI_HandleTypeDef hspi1;
 char str1[100]={0};
 int16_t AccelData[3];
 int16_t GyroData[3];
+float roll = 0.0, pitch = 0.0, yaw = 0.0;
+int16_t min_xval = 128;
+int16_t max_xval = -128;
+int16_t min_yval = 128;
+int16_t max_yval = -128;
+int16_t newxval = 0;
+int16_t newyval = 0;
+uint8_t button_flag = 0;
+float ax_real, ay_real, az_real, vx, vy, vz, x, y, z;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,6 +74,17 @@ static void MX_NVIC_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+extern USBD_HandleTypeDef hUsbDeviceFS;
+
+typedef struct
+{
+	uint8_t button;
+	int8_t mouse_x;
+	int8_t mouse_y;
+	int8_t wheel;
+} mouseHID;
+
+mouseHID mousehid = {0,0,0,0};
 
 /* USER CODE END 0 */
 
@@ -107,7 +128,15 @@ int main(void)
   Accel_Ini();
   Accel_GetXYZ(AccelData);
   Gyro_GetXYZ(GyroData);
-
+  for (int i=0; i<50; i++)
+	{
+	    Accel_GetXYZ(AccelData);;
+		min_xval = MIN(min_xval, AccelData[0]);
+		max_xval = MAX(max_xval, AccelData[0]);
+		min_yval = MIN(min_yval, AccelData[1]);
+		max_yval = MAX(max_yval, AccelData[1]);
+		HAL_Delay (100);
+	}
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -122,10 +151,62 @@ int main(void)
 	  HAL_Delay(500);
 	  */
 	  Accel_GetXYZ(AccelData);
-	  sprintf(str1,"gX: %06d; gY: %06d; gZ: %06d; \n\r", GyroData[0], GyroData[1], GyroData[2]);
-	  HAL_Delay(500);
+	  Gyro_GetXYZ(GyroData);
+	  GetAngles(AccelData[0],AccelData[1],AccelData[2],GyroData[0], GyroData[1], GyroData[2], &roll, &pitch, &yaw);
+	  delete_gravity(AccelData[0], AccelData[1], AccelData[2], roll, pitch,&ax_real,&ay_real,&az_real);
+	  integrate_position(AccelData[0], AccelData[1], AccelData[2], &vx, &vy, &vz, &x, &y, &z);
+	  sprintf(str1,"X: %06d; Y: %06d; Z: %06d; \n\r", x,y,z);
+	  HAL_Delay(50);
 	  /*HAL_UART_Transmit(&huart1,(uint8_t*)str1, strlen(str1),0x1000);*/
-	  CDC_Transmit_FS((uint8_t*)str1, strlen(str1));
+	  /*CDC_Transmit_FS((uint8_t*)str1, strlen(str1));*/
+
+	  if (AccelData[0] < min_xval)
+	   {
+			 newxval = AccelData[0] - min_xval;
+	   }
+
+	  else if (AccelData[0] > max_xval)
+	   {
+			 newxval = AccelData[0] - max_xval;
+	   }
+
+	  if (AccelData[1] < min_yval)
+	  {
+			newyval = AccelData[1] - min_yval;
+	  }
+
+	  else if (AccelData[1] > max_yval)
+	  {
+		   newyval = AccelData[1] - max_yval;
+	  }
+
+	  if ((newxval > 20) || (newxval <-20))
+	  {
+		   mousehid.mouse_y = (newxval/3);
+	  }
+
+	  else mousehid.mouse_y = 0;
+	  if ((newyval > 20) || (newyval <-20))
+	  {
+		   mousehid.mouse_x= (newyval)/3;
+	  }
+
+	  else mousehid.mouse_x = 0;
+	  if (button_flag==1)
+	  {
+		   mousehid.button = 1;
+		   USBD_HID_SendReport(&hUsbDeviceFS, &mousehid, sizeof(mousehid));
+		   HAL_Delay (50);
+		   mousehid.button = 0;
+
+		   USBD_HID_SendReport(&hUsbDeviceFS,&mousehid, sizeof(mousehid));
+		   button_flag =0;
+	  }
+
+	  USBD_HID_SendReport(&hUsbDeviceFS,&mousehid, sizeof(mousehid));
+	  HAL_Delay(10);
+
+	  /*
 	  if(AccelData[0] > 1500)
 	  {
 		  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_11 , GPIO_PIN_SET);
@@ -167,7 +248,7 @@ int main(void)
 	        	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9 , GPIO_PIN_SET);
 	          }
 	  }
-	  HAL_Delay(50);
+	  HAL_Delay(500);
 	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_RESET);
 	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_15 , GPIO_PIN_RESET);
 	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_11 , GPIO_PIN_RESET);
@@ -176,6 +257,7 @@ int main(void)
 	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_14 , GPIO_PIN_RESET);
 	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_12 , GPIO_PIN_RESET);
 	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_10 , GPIO_PIN_RESET);
+	  */
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -348,9 +430,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3|GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10
-                          |GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14
-                          |GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11
+                          |GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PE2 PE4 */
   GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_4;
@@ -358,28 +439,30 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PE3 PE8 PE9 PE10
-                           PE11 PE12 PE13 PE14
-                           PE15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10
-                          |GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14
-                          |GPIO_PIN_15;
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PE8 PE9 PE10 PE11
+                           PE12 PE13 PE14 PE15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11
+                          |GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PA0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PE1 */
   GPIO_InitStruct.Pin = GPIO_PIN_1;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -391,6 +474,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if(GPIO_Pin == GPIO_PIN_1)
 	{
 		Gyro_GetXYZ(GyroData);
+	}
+	if (GPIO_Pin == GPIO_PIN_0)
+	{
+		button_flag = 1;
 	}
 }
 /* USER CODE END 4 */

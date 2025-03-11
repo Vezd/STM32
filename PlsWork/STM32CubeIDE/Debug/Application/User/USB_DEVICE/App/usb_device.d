@@ -40,9 +40,8 @@ Application/User/USB_DEVICE/App/usb_device.o: \
  ../../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_core.h \
  ../../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ctlreq.h \
  C:/MyStm/PlsWork/USB_DEVICE/App/usbd_desc.h \
- ../../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc/usbd_cdc.h \
- ../../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ioreq.h \
- C:/MyStm/PlsWork/USB_DEVICE/App/usbd_cdc_if.h
+ ../../Middlewares/ST/STM32_USB_Device_Library/Class/HID/Inc/usbd_hid.h \
+ ../../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ioreq.h
 C:/MyStm/PlsWork/USB_DEVICE/App/usb_device.h:
 ../../Drivers/CMSIS/Device/ST/STM32F3xx/Include/stm32f3xx.h:
 ../../Drivers/CMSIS/Device/ST/STM32F3xx/Include/stm32f303xc.h:
@@ -84,6 +83,5 @@ C:/MyStm/PlsWork/USB_DEVICE/App/usb_device.h:
 ../../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_core.h:
 ../../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ctlreq.h:
 C:/MyStm/PlsWork/USB_DEVICE/App/usbd_desc.h:
-../../Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc/usbd_cdc.h:
+../../Middlewares/ST/STM32_USB_Device_Library/Class/HID/Inc/usbd_hid.h:
 ../../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ioreq.h:
-C:/MyStm/PlsWork/USB_DEVICE/App/usbd_cdc_if.h:

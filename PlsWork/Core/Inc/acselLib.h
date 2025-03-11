@@ -14,6 +14,7 @@
 #endif /* APPLICATION_USER_CORE_MEMS_H_ */
 
 #include "stm32f3xx_hal.h"
+#include <math.h>
 extern SPI_HandleTypeDef hspi1;
 extern I2C_HandleTypeDef hi2c1;
 
@@ -186,4 +187,37 @@ void Gyro_GetXYZ(int16_t* pData)
 		valueinfloat = ((buffer[2*i+1] << 8) + buffer[2*i]);
 		pData[i]=(int16_t)valueinfloat;
 	}
+}
+
+void GetAngles(float ax, float ay, float az, float gx, float gy, float gz,float* roll, float* pitch, float* yaw)
+{
+    float acc_roll  = atan2(ay, az) * 180.0 / M_PI;
+    float acc_pitch = atan2(-ax, sqrt(ay * ay + az * az)) * 180.0 / M_PI;
+
+    *roll  += gx * 0.01;
+    *pitch += gy * 0.01;
+    *yaw   += gz * 0.01;
+
+    *roll  = 0.98 * (*roll)  + (1 - 0.98) * acc_roll;
+    *pitch = 0.98 * (*pitch) + (1 - 0.98) * acc_pitch;
+}
+
+void delete_gravity(float ax, float ay, float az, float roll, float pitch, float *ax_real, float *ay_real, float *az_real) {
+    float g_x = 9.8 * sin(pitch * M_PI / 180.0);
+    float g_y = -9.8 * sin(roll * M_PI / 180.0) * cos(pitch * M_PI / 180.0);
+    float g_z = -9.8 * cos(roll * M_PI / 180.0) * cos(pitch * M_PI / 180.0);
+    *ax_real = ax - g_x;
+    *ay_real = ay - g_y;
+    *az_real = az - g_z;
+}
+
+void integrate_position(float ax, float ay, float az, float *vx, float *vy, float *vz, float *x, float *y, float *z) {
+	float dt = 0.01;
+	*vx += ax * dt;
+    *vy += ay * dt;
+    *vz += az * dt;
+
+    *x += *vx * dt;
+    *y += *vy * dt;
+    *z += *vz * dt;
 }
